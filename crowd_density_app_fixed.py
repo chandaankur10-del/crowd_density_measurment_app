@@ -1,18 +1,10 @@
 import streamlit as st
 import cv2
-import torch
 import numpy as np
+import torch
 from ultralytics import YOLO
 from PIL import Image
 import os
-
-
-import os
-import tempfile
-from pathlib import Path
-import numpy as np
-import streamlit as st
-from ultralytics import YOLO
 
 st.set_page_config(
     page_title="Crowd Density Estimator",
