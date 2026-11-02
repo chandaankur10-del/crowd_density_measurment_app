@@ -69,6 +69,7 @@ except Exception as exc:
     st.error(f"Could not load the YOLO model: {exc}")
     st.stop()
 
+
 uploaded_video = st.file_uploader(
     "Upload Video",
     type=["mp4", "avi", "mov"]
@@ -76,30 +77,40 @@ uploaded_video = st.file_uploader(
 
 if uploaded_video is not None:
 
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".mp4"
-    ) as temp:
-        temp.write(uploaded_video.read())
-        video_path = temp.name
+    input_path = None
+    output_path = None
+
+    try:
+        # Save uploaded video temporarily
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".mp4"
+        ) as temp:
+            temp.write(uploaded_video.getbuffer())
+            input_path = temp.name
 
         st.video(input_path)
 
         if st.button("🚀 Process video", type="primary"):
+
             cap = cv2.VideoCapture(input_path)
 
             if not cap.isOpened():
                 st.error("OpenCV could not open this video.")
-                cap.release()
                 st.stop()
 
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
             fps = cap.get(cv2.CAP_PROP_FPS)
+
             if not np.isfinite(fps) or fps <= 0:
                 fps = 25.0
 
-            source_frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            source_frame_count = int(
+                cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            )
+
             total_frames = (
                 min(source_frame_count, int(max_frames))
                 if source_frame_count > 0
@@ -108,62 +119,82 @@ if uploaded_video is not None:
 
             if width <= 0 or height <= 0 or total_frames <= 0:
                 cap.release()
-                st.error("The uploaded video has invalid dimensions or no frames.")
+                st.error("Invalid video dimensions or no frames.")
                 st.stop()
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_out:
+            # Create output video
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
+            ) as temp_out:
                 output_path = temp_out.name
 
-            # mp4v is broadly available in OpenCV builds.
             writer = cv2.VideoWriter(
                 output_path,
                 cv2.VideoWriter_fourcc(*"mp4v"),
                 fps,
-                (width, height),
+                (width, height)
             )
 
             if not writer.isOpened():
                 cap.release()
-                st.error("Could not create the output video.")
+                st.error("Could not create output video.")
                 st.stop()
 
             progress = st.progress(0)
             status = st.empty()
+
             frame_count = 0
             latest_count = 0
 
             try:
                 while frame_count < total_frames:
+
                     ret, frame = cap.read()
+
                     if not ret:
                         break
 
                     results = model.predict(
                         frame,
                         conf=confidence_threshold,
-                        verbose=False,
+                        verbose=False
                     )
 
                     person_count = 0
+
                     for result in results:
+
                         if result.boxes is None:
                             continue
 
                         for box in result.boxes:
-                            class_id = int(box.cls.item())
-                            class_name = str(result.names.get(class_id, class_id)).lower()
 
-                            # This app counts the "person" class only.
+                            class_id = int(box.cls.item())
+
+                            class_name = str(
+                                result.names.get(class_id, class_id)
+                            ).lower()
+
                             if class_name == "person":
+
                                 person_count += 1
+
                                 x1, y1, x2, y2 = map(
-                                    int, box.xyxy[0].cpu().tolist()
+                                    int,
+                                    box.xyxy[0].cpu().tolist()
                                 )
+
                                 cv2.rectangle(
-                                    frame, (x1, y1), (x2, y2), (0, 255, 0), 2
+                                    frame,
+                                    (x1, y1),
+                                    (x2, y2),
+                                    (0, 255, 0),
+                                    2
                                 )
 
                     density = person_count / float(physical_area)
+
                     cv2.putText(
                         frame,
                         f"People: {person_count}",
@@ -171,8 +202,9 @@ if uploaded_video is not None:
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.9,
                         (0, 255, 0),
-                        2,
+                        2
                     )
+
                     cv2.putText(
                         frame,
                         f"Density: {density:.3f} people/m2",
@@ -180,48 +212,60 @@ if uploaded_video is not None:
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.8,
                         (0, 255, 0),
-                        2,
+                        2
                     )
 
                     writer.write(frame)
+
                     frame_count += 1
                     latest_count = person_count
-                    progress.progress(min(frame_count / total_frames, 1.0))
+
+                    progress.progress(
+                        min(frame_count / total_frames, 1.0)
+                    )
+
                     status.text(
                         f"Processed {frame_count}/{total_frames} frames | "
-                        f"Current people count: {latest_count}"
+                        f"People: {latest_count}"
                     )
+
             finally:
                 cap.release()
                 writer.release()
 
-            if frame_count == 0 or not os.path.exists(output_path):
+            if frame_count == 0:
                 st.error("No video frames were processed.")
                 st.stop()
 
             st.success(
-                f"Processing complete. Processed {frame_count} frames. "
-                f"Last-frame count: {latest_count}."
+                f"Processing complete! "
+                f"Frames: {frame_count} | "
+                f"Last-frame people count: {latest_count}"
             )
 
             with open(output_path, "rb") as video_file:
                 video_bytes = video_file.read()
 
             st.video(video_bytes)
+
             st.download_button(
                 "📥 Download annotated video",
                 data=video_bytes,
                 file_name="annotated_crowd_density.mp4",
-                mime="video/mp4",
+                mime="video/mp4"
             )
 
     except Exception as exc:
         st.error(f"Video processing failed: {exc}")
 
     finally:
+
         for temporary_path in (input_path, output_path):
+
             if temporary_path and os.path.exists(temporary_path):
+
                 try:
                     os.remove(temporary_path)
+
                 except OSError:
                     pass
