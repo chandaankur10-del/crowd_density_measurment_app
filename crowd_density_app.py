@@ -6,6 +6,7 @@ from PIL import Image
 import torch
 import os
 from pathlib import Path
+import tempfile
 
 
 st.set_page_config(
@@ -79,9 +80,9 @@ if uploaded_file is not None:
     try:
         # Keep the uploaded video's original extension.
         suffix = Path(uploaded_file.name).suffix or ".mp4"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_in:
-            temp_in.write(uploaded_file.getbuffer())
-            input_path = temp_in.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp:
+            temp.write(uploaded_video.read())
+            video_path = temp.name
 
         st.video(input_path)
 
