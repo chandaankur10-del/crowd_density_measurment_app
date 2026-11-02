@@ -68,9 +68,9 @@ except Exception as exc:
     st.error(f"Could not load the YOLO model: {exc}")
     st.stop()
 
-uploaded_file = st.file_uploader(
-    "Choose a video file",
-    type=["mp4", "avi", "mov", "mkv"],
+uploaded_video = st.file_uploader(
+    "Upload a video",
+    type=["mp4", "avi", "mov"]
 )
 
 if uploaded_file is not None:
