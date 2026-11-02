@@ -73,7 +73,7 @@ uploaded_video = st.file_uploader(
     type=["mp4", "avi", "mov"]
 )
 
-if uploaded_file is not None:
+if uploaded_video is not None:
     input_path = None
     output_path = None
 
