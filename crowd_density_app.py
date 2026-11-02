@@ -6,6 +6,10 @@ from PIL import Image
 import torch
 import os
 
+import cv2
+
+st.write("OpenCV Version:", cv2.__version__)
+
 st.set_page_config(
     page_title="Crowd Density Estimator",
     page_icon="👥",
