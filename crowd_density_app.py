@@ -70,20 +70,18 @@ except Exception as exc:
     st.stop()
 
 uploaded_video = st.file_uploader(
-    "Upload a video",
+    "Upload Video",
     type=["mp4", "avi", "mov"]
 )
 
 if uploaded_video is not None:
-    input_path = None
-    output_path = None
 
-    try:
-        # Keep the uploaded video's original extension.
-        suffix = Path(uploaded_file.name).suffix or ".mp4"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp:
-            temp.write(uploaded_video.read())
-            video_path = temp.name
+    with tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".mp4"
+    ) as temp:
+        temp.write(uploaded_video.read())
+        video_path = temp.name
 
         st.video(input_path)
 
